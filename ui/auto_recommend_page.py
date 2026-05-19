@@ -106,10 +106,12 @@ def fetch_symbol_metrics(symbol: str) -> Optional[Dict]:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def quick_backtest_score(symbol: str) -> Optional[Dict]:
-    """快速回測單一策略（Delta 0.25 / 45 DTE / expiry），給推薦評分用"""
+    """快速回測單一策略（Delta 0.25 / 45 DTE / expiry），給推薦評分用。
+
+    使用 5 年資料以涵蓋多種市場環境（含 2022 熊市）。"""
     try:
         end = datetime.now().strftime('%Y-%m-%d')
-        start = (datetime.now() - timedelta(days=365 * 2)).strftime('%Y-%m-%d')
+        start = (datetime.now() - timedelta(days=365 * 5)).strftime('%Y-%m-%d')
         data = prepare_backtest_data(symbol, start, end)
 
         if data["prices"].empty or len(data["prices"]) < 100:
@@ -191,10 +193,10 @@ def fetch_iv_history(symbol: str) -> Optional[pd.DataFrame]:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def compare_all_strategies(symbol: str) -> Optional[Dict]:
-    """對單一標的跑 CC / CSP / Wheel / PMCC 4 種策略比較"""
+    """對單一標的跑 CC / CSP / Wheel / PMCC 4 種策略比較（5 年資料）"""
     try:
         end = datetime.now().strftime('%Y-%m-%d')
-        start = (datetime.now() - timedelta(days=365 * 2)).strftime('%Y-%m-%d')
+        start = (datetime.now() - timedelta(days=365 * 5)).strftime('%Y-%m-%d')
         data = prepare_backtest_data(symbol, start, end)
 
         if data["prices"].empty or len(data["prices"]) < 100:
@@ -614,7 +616,7 @@ def render_auto_recommend_page():
                     reverse=True,
                 )
 
-                st.markdown("##### 各策略表現對比（過去 2 年）")
+                st.markdown("##### 各策略表現對比（過去 5 年）")
                 comp_df = pd.DataFrame([{
                     "策略": name,
                     "CAGR": f"{m['cagr']:.2%}",
@@ -696,7 +698,7 @@ def render_auto_recommend_page():
 
             if pd.notna(row.get("cagr")):
                 e1, e2, e3 = st.columns(3)
-                e1.metric("近 2 年 CC CAGR", f"{row['cagr']:.1%}")
+                e1.metric("近 5 年 CC CAGR", f"{row['cagr']:.1%}")
                 e2.metric("BH CAGR", f"{row['bh_cagr']:.1%}")
                 e3.metric("超額報酬",
                           f"{row['excess']:+.1%}",
@@ -820,7 +822,7 @@ def render_auto_recommend_page():
                         )
 
                         # 表格比較
-                        st.markdown("##### 各策略表現對比（過去 2 年）")
+                        st.markdown("##### 各策略表現對比（過去 5 年）")
 
                         comp_df = pd.DataFrame([{
                             "策略": name,
@@ -895,7 +897,7 @@ def render_auto_recommend_page():
 | **IV 分數** | IV 高 → premium 多，賣方有利 | 用近 30 日 realized vol × 1.20 估計，看在過去 1 年中的相對位置 (IV Rank) |
 | **沒大漲分數** | 避免追高，剛大漲的標的容易回調 | 30 天漲幅 < 3% 滿分，> 12% 扣分 |
 | **流動性分數** | 流動性差會被滑價吃掉獲利 | 日均成交額（dollar volume）> 50 億滿分 |
-| **回測 CAGR 分數** | 證明這檔股票真的能用 CC 賺到錢 | 用過去 2 年標準策略（Δ0.25, 45 DTE, expiry）回測 |
+| **回測 CAGR 分數** | 證明這檔股票真的能用 CC 賺到錢 | 用過去 5 年標準策略（Δ0.25, 45 DTE, expiry）回測 |
 
 **評分閾值**：
 - 80+ 分：🟢 強推

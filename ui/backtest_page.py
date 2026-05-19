@@ -61,14 +61,19 @@ def render_backtest_page():
         with c2:
             preset = st.selectbox(
                 "期間預設 Period preset",
-                ["自訂 Custom", "近 1 年 Last 1 year", "近 3 年 Last 3 years",
-                 "近 5 年 Last 5 years", "2022 熊市 (bear)", "2023 牛市 (bull)",
-                 "2020-2023 完整循環 (full cycle)"],
-                index=2,
+                ["自訂 Custom",
+                 "近 1 年 Last 1 year",
+                 "近 3 年 Last 3 years",
+                 "近 5 年 Last 5 years ⭐ 推薦",
+                 "近 7 年 Last 7 years",
+                 "近 10 年 Last 10 years（含 2018+2020+2022 三次熊市）",
+                 "2018 Q4 熊市", "2020 COVID 閃崩", "2022 熊市 (bear)",
+                 "2023 牛市 (bull)", "2020-2023 完整循環"],
+                index=3,  # 預設 5 年
             )
 
         today = datetime.now().date()
-        default_start = today - timedelta(days=365 * 3)
+        default_start = today - timedelta(days=365 * 5)
         default_end = today
         if "Last 1" in preset or "近 1" in preset:
             default_start = today - timedelta(days=365)
@@ -76,6 +81,14 @@ def render_backtest_page():
             default_start = today - timedelta(days=365 * 3)
         elif "Last 5" in preset or "近 5" in preset:
             default_start = today - timedelta(days=365 * 5)
+        elif "Last 7" in preset or "近 7" in preset:
+            default_start = today - timedelta(days=365 * 7)
+        elif "Last 10" in preset or "近 10" in preset:
+            default_start = today - timedelta(days=365 * 10)
+        elif "2018" in preset:
+            default_start, default_end = datetime(2018, 10, 1).date(), datetime(2018, 12, 31).date()
+        elif "2020" in preset and "COVID" in preset:
+            default_start, default_end = datetime(2020, 2, 1).date(), datetime(2020, 5, 31).date()
         elif "2022" in preset:
             default_start, default_end = datetime(2022, 1, 1).date(), datetime(2022, 12, 31).date()
         elif "2023" in preset:
@@ -112,8 +125,8 @@ def render_backtest_page():
                 with c2:
                     cc_dte_values = st.multiselect(
                         "DTE 到期天數", [7, 14, 21, 30, 45, 60],
-                        default=[30], key="cc_dte",
-                        help="距離到期日剩幾天，常用 30-45")
+                        default=[7, 14, 30, 45], key="cc_dte",
+                        help="7=週選高週轉 / 14=雙週 / 30=月選 / 45=經典 tastytrade")
                 with c3:
                     cc_close_rules = st.multiselect(
                         "Close Rule 關閉規則", ["expiry", "profit_50", "dte_21", "hybrid"],
@@ -139,7 +152,7 @@ def render_backtest_page():
                 with c2:
                     csp_dte_values = st.multiselect(
                         "DTE 到期天數", [7, 14, 21, 30, 45, 60],
-                        default=[30], key="csp_dte")
+                        default=[7, 14, 30, 45], key="csp_dte")
                 with c3:
                     csp_close_rules = st.multiselect(
                         "Close Rule 關閉規則", ["expiry", "profit_50", "dte_21", "hybrid"],

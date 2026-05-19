@@ -70,29 +70,33 @@ def fetch_call_chain(symbol: str, expiration: str) -> pd.DataFrame:
 # ============================================================
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def find_best_params(symbol: str, risk_preference: str) -> Dict:
+def find_best_params(symbol: str, risk_preference: str,
+                     backtest_years: int = 5,
+                     include_short_dte: bool = True) -> Dict:
     """
-    用過去 3 年資料找最佳 (delta, dte, close_rule) 組合。
-    根據風險偏好做不同的篩選。
+    用過去 N 年資料找最佳 (delta, dte, close_rule) 組合。
+
+    Args:
+        backtest_years: 回測年數（預設 5 年）
+        include_short_dte: 是否包含 7/14 天短天期策略（預設 True）
     """
-    # 抓歷史資料
     end = datetime.now().strftime('%Y-%m-%d')
-    start = (datetime.now() - timedelta(days=365 * 3)).strftime('%Y-%m-%d')
+    start = (datetime.now() - timedelta(days=365 * backtest_years)).strftime('%Y-%m-%d')
     data = prepare_backtest_data(symbol, start, end)
 
     if data["prices"].empty:
         return {}
 
-    # 候選策略
+    # 候選策略：含短天期
     if risk_preference == "保守":
         deltas = [0.15, 0.20]
-        dtes = [30, 45]
+        dtes = [14, 30, 45] if include_short_dte else [30, 45]
     elif risk_preference == "平衡":
         deltas = [0.20, 0.25]
-        dtes = [30, 45]
+        dtes = [7, 14, 30, 45] if include_short_dte else [30, 45]
     else:  # 積極
         deltas = [0.25, 0.30, 0.35]
-        dtes = [21, 30, 45]
+        dtes = [7, 14, 21, 30, 45] if include_short_dte else [21, 30, 45]
 
     close_rules = ["expiry", "profit_50", "dte_21", "hybrid"]
 
@@ -137,8 +141,10 @@ def find_best_params(symbol: str, risk_preference: str) -> Dict:
     return {
         "best": results[0],
         "top3": results[:3],
-        "spot_3yr_ago": float(data["prices"].iloc[0]["close"]),
+        "spot_start": float(data["prices"].iloc[0]["close"]),
         "spot_today": float(data["prices"].iloc[-1]["close"]),
+        "backtest_years": backtest_years,
+        "n_strategies_tested": len(results),
     }
 
 
@@ -262,7 +268,7 @@ def generate_occ_symbol(underlying: str, exp_str: str, strike: float, right: str
 def render_recommendation_page():
     st.subheader("🎯 立即建議 / Get Recommendation")
     st.caption(
-        "輸入標的，系統會：(1) 用過去 3 年回測找最佳參數 (2) 抓即時合約給你具體標的 "
+        "輸入標的，系統會：(1) 用歷史回測找最佳參數 (2) 抓即時合約給你具體標的 "
         "(3) 產生 TWS 下單步驟"
     )
 
@@ -293,8 +299,29 @@ def render_recommendation_page():
                 help="必須是 100 的倍數（每 100 股 = 1 contract）",
             )
 
+        # 🆕 新增：回測年數 + 短天期選項
+        c4, c5 = st.columns(2)
+        with c4:
+            backtest_years_label = st.selectbox(
+                "回測年數 Backtest Period",
+                ["3 年（快速）", "5 年 ⭐ 推薦", "7 年（含 2018 熊市）",
+                 "10 年（最完整，含 3 次熊市）"],
+                index=1,
+                help="越長越能反映完整市場循環，但耗時較久",
+            )
+            years_map = {"3": 3, "5": 5, "7": 7, "10": 10}
+            backtest_years = years_map[backtest_years_label.split(" ")[0]]
+
+        with c5:
+            include_short_dte = st.checkbox(
+                "包含短天期策略 (7/14 天) Include Weekly",
+                value=True,
+                help="勾選後也會測試週選和雙週選擇權（適合資金週轉快的策略）",
+            )
+
         st.caption(
             "💡 yfinance 資料**盤中延遲 15-20 分鐘**。若是盤後或週末，會顯示前一個交易日收盤價。"
+            + ("  \n⏱️ 回測 10 年 + 短天期約需 1-2 分鐘" if backtest_years >= 7 else "")
         )
 
     # ---------- 開始分析按鈕 ----------
@@ -313,8 +340,13 @@ def render_recommendation_page():
                 st.stop()
 
         # === Step 2: 跑回測找最佳參數 ===
-        with st.spinner(f"🧪 跑 {symbol} 過去 3 年回測（約 30-60 秒）..."):
-            backtest_result = find_best_params(symbol, risk_key)
+        bt_time_est = "1-2 分鐘" if backtest_years >= 7 else "30-60 秒"
+        with st.spinner(f"🧪 跑 {symbol} 過去 {backtest_years} 年回測（約 {bt_time_est}）..."):
+            backtest_result = find_best_params(
+                symbol, risk_key,
+                backtest_years=backtest_years,
+                include_short_dte=include_short_dte,
+            )
             if not backtest_result:
                 st.error(f"無法回測 {symbol}。可能是新上市或資料不足。")
                 st.stop()
@@ -335,8 +367,10 @@ def render_recommendation_page():
             "best": best, "top3": backtest_result["top3"],
             "contracts": contracts,
             "risk_key": risk_key,
-            "spot_3yr_ago": backtest_result["spot_3yr_ago"],
+            "spot_start": backtest_result["spot_start"],
             "spot_today": backtest_result["spot_today"],
+            "backtest_years": backtest_result["backtest_years"],
+            "n_strategies_tested": backtest_result["n_strategies_tested"],
             "analysis_time": datetime.now(),
         }
 
@@ -355,14 +389,16 @@ def render_recommendation_page():
     st.markdown("### 📊 當前狀態 / Current Status")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric(f"{r['symbol']} 現價", f"${r['spot']:.2f}")
-    c2.metric("過去 3 年漲幅",
-              f"{(r['spot_today']/r['spot_3yr_ago']-1)*100:+.1f}%")
+    c2.metric(f"過去 {r['backtest_years']} 年漲幅",
+              f"{(r['spot_today']/r['spot_start']-1)*100:+.1f}%")
     c3.metric("你的持股", f"{r['shares']} 股")
     c4.metric("可賣合約數", f"{r['n_contracts']} 張")
 
     st.caption(
         f"💼 你的部位價值：${r['spot'] * r['shares']:,.0f}  ·  "
         f"風險偏好：{r['risk_key']}  ·  "
+        f"回測年數：{r['backtest_years']} 年  ·  "
+        f"測試了 {r['n_strategies_tested']} 種策略組合  ·  "
         f"分析時間：{r['analysis_time'].strftime('%H:%M:%S')}"
     )
 
@@ -371,7 +407,7 @@ def render_recommendation_page():
     # ===========================================
     st.divider()
     st.markdown("### 🎯 建議參數 / Recommended Parameters")
-    st.caption("基於 **過去 3 年回測** 在你的風險偏好下表現最好的組合")
+    st.caption(f"基於 **過去 {r['backtest_years']} 年回測** 在你的風險偏好下表現最好的組合")
 
     best = r["best"]
     target_exp_date = datetime.now() + timedelta(days=best["dte"])
@@ -395,7 +431,7 @@ def render_recommendation_page():
 - 年化報酬：**{best['cagr']:.1%}**（vs 持有不動 {best['bh_cagr']:.1%}）
 - 超額報酬：**{best['excess']:+.1%}**
 - 歷史勝率：**{best['win_rate']:.0%}**（{best['n_trades']} 筆中）
-- 3 年內被指派：**{best['n_assigned']}** 次
+- {r['backtest_years']} 年內被指派：**{best['n_assigned']}** 次
 - 夏普值：{best['sharpe']:.2f}
 - 最大回撤：{best['max_dd']:.1%}
         """)
