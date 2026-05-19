@@ -175,60 +175,61 @@ def screen_one_symbol(symbol: str, cfg: ScreenerConfig, max_expirations: int = 3
 
 
 def render_screener_page():
-    st.subheader("🔍 Covered Call Screener")
+    st.subheader("🔍 CC 機會篩選器 / Screener")
     st.caption(
-        "Find attractive CC opportunities using free yfinance options data. "
-        "Greeks computed via Black-Scholes from yfinance IV."
+        "使用免費的 yfinance 選擇權資料找適合賣 CC 的機會。"
+        "Greeks 由 Black-Scholes 從 yfinance IV 反算。"
     )
 
     # ---------- Config ----------
-    with st.expander("⚙️ Screening Parameters", expanded=True):
+    with st.expander("⚙️ 篩選參數 / Screening Parameters", expanded=True):
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown("**Delta Range**")
-            min_delta = st.slider("Min Delta", 0.05, 0.50, DEFAULT_CONFIG["min_delta"], 0.05, key="scr_mind")
-            max_delta = st.slider("Max Delta", 0.10, 0.60, DEFAULT_CONFIG["max_delta"], 0.05, key="scr_maxd")
-            st.markdown("**DTE Range**")
-            min_dte = st.number_input("Min DTE", 1, 180, DEFAULT_CONFIG["min_dte"], key="scr_mindte")
-            max_dte = st.number_input("Max DTE", 5, 365, DEFAULT_CONFIG["max_dte"], key="scr_maxdte")
+            st.markdown("**Delta 範圍 / Delta Range**")
+            min_delta = st.slider("最小 Delta", 0.05, 0.50, DEFAULT_CONFIG["min_delta"], 0.05, key="scr_mind")
+            max_delta = st.slider("最大 Delta", 0.10, 0.60, DEFAULT_CONFIG["max_delta"], 0.05, key="scr_maxd")
+            st.markdown("**DTE 範圍**")
+            min_dte = st.number_input("最小 DTE", 1, 180, DEFAULT_CONFIG["min_dte"], key="scr_mindte")
+            max_dte = st.number_input("最大 DTE", 5, 365, DEFAULT_CONFIG["max_dte"], key="scr_maxdte")
         with c2:
-            st.markdown("**Return Requirements**")
+            st.markdown("**報酬要求 / Return Requirements**")
             min_premium_pct = st.number_input(
-                "Min Premium %", 0.0, 20.0,
+                "最低 Premium %（佔股價）", 0.0, 20.0,
                 DEFAULT_CONFIG["min_premium_pct"], 0.1, key="scr_minprem")
             min_annualized = st.number_input(
-                "Min Annualized Return %", 0.0, 200.0,
+                "最低年化報酬 %", 0.0, 200.0,
                 DEFAULT_CONFIG["min_annualized_return"], 1.0, key="scr_minann")
             min_otm = st.number_input(
-                "Min OTM %", 0.0, 30.0,
-                DEFAULT_CONFIG["min_otm_pct"], 0.5, key="scr_minotm")
+                "最低 OTM %", 0.0, 30.0,
+                DEFAULT_CONFIG["min_otm_pct"], 0.5, key="scr_minotm",
+                help="strike 至少要比現價高多少 %")
         with c3:
-            st.markdown("**Liquidity**")
-            min_volume = st.number_input("Min Volume", 0, 10000,
+            st.markdown("**流動性 / Liquidity**")
+            min_volume = st.number_input("最低成交量 Volume", 0, 10000,
                                           DEFAULT_CONFIG["min_volume"], key="scr_minvol")
-            min_oi = st.number_input("Min Open Interest", 0, 50000,
+            min_oi = st.number_input("最低未平倉 OI", 0, 50000,
                                       DEFAULT_CONFIG["min_open_interest"], key="scr_minoi")
             max_spread = st.number_input(
-                "Max Bid-Ask Spread %", 0.0, 50.0,
+                "最大買賣價差 %", 0.0, 50.0,
                 DEFAULT_CONFIG["max_bid_ask_spread_pct"], 1.0, key="scr_maxspread")
 
     # ---------- Symbols ----------
-    st.markdown("**Symbols to Scan**")
+    st.markdown("**要掃描的標的 / Symbols to Scan**")
     symbols_input = st.text_input(
-        "Tickers (comma-separated)",
+        "Tickers（逗號分隔）",
         value=",".join(DEFAULT_WATCHLIST[:8]),
-        help="Mix of stocks & ETFs you'd consider for CC",
+        help="可以是個股或 ETF，例如 AAPL, MSFT, SPY",
     )
     symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
 
     st.caption(
-        "💡 yfinance options data is free but: (1) may be delayed 15-20 min during market hours, "
-        "(2) doesn't include Greeks (we compute via Black-Scholes), "
-        "(3) some illiquid strikes have 0 bid/ask."
+        "💡 yfinance 資料**免費**但：(1) 盤中可能延遲 15-20 分鐘，"
+        "(2) 不含 Greeks（我們用 Black-Scholes 計算），"
+        "(3) 流動性差的 strike 可能 bid/ask = 0。"
     )
 
     # ---------- Run ----------
-    if st.button("🚀 Run Screen", type="primary", disabled=not symbols):
+    if st.button("🚀 開始篩選 Run Screen", type="primary", disabled=not symbols):
         cfg = ScreenerConfig(
             min_delta=min_delta, max_delta=max_delta,
             min_premium_pct=min_premium_pct,
@@ -258,21 +259,21 @@ def render_screener_page():
             final = final.sort_values("score", ascending=False)
             st.session_state["screen_results"] = final
             st.session_state["screen_time"] = datetime.now()
-            st.success(f"Found {len(final)} candidates")
+            st.success(f"✅ 找到 {len(final)} 個候選 / Found {len(final)} candidates")
         else:
-            st.warning("No candidates met the criteria. Try loosening filters.")
+            st.warning("無符合條件的候選。試著放寬篩選條件。")
             st.session_state["screen_results"] = pd.DataFrame()
 
     # ---------- Display ----------
     if st.session_state.get("screen_results") is not None and not st.session_state["screen_results"].empty:
         results = st.session_state["screen_results"]
-        st.caption(f"Last scan: {st.session_state['screen_time'].strftime('%H:%M:%S')}")
+        st.caption(f"上次掃描時間 / Last scan: {st.session_state['screen_time'].strftime('%H:%M:%S')}")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Candidates", len(results))
-        c2.metric("Avg Annualized %", f"{results['annualized_return'].mean():.1f}")
-        c3.metric("Best Score", f"{results['score'].max():.1f}")
-        c4.metric("Unique Symbols", results["symbol"].nunique())
+        c1.metric("候選總數", len(results))
+        c2.metric("平均年化 %", f"{results['annualized_return'].mean():.1f}")
+        c3.metric("最高分數", f"{results['score'].max():.1f}")
+        c4.metric("獨特標的數", results["symbol"].nunique())
 
         display_cols = [
             "symbol", "expiration", "dte", "strike", "spot",
@@ -300,4 +301,4 @@ def render_screener_page():
         )
 
         csv = results.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Download CSV", csv, "cc_screen.csv", "text/csv")
+        st.download_button("📥 下載 CSV / Download", csv, "cc_screen.csv", "text/csv")

@@ -62,8 +62,8 @@ def check_password() -> bool:
     # Render login screen
     st.markdown(
         "<div style='text-align:center; padding: 3rem 0 1rem 0;'>"
-        "<h1>📈 Covered Call System</h1>"
-        "<p style='color: #888;'>Authorized access only</p>"
+        "<h1>📈 Covered Call 交易系統</h1>"
+        "<p style='color: #888;'>授權使用者專用 · Authorized access only</p>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -71,16 +71,16 @@ def check_password() -> bool:
     _, mid, _ = st.columns([1, 2, 1])
     with mid:
         with st.form("login"):
-            pwd = st.text_input("Password", type="password",
-                                 placeholder="Enter password",
+            pwd = st.text_input("密碼 Password", type="password",
+                                 placeholder="請輸入密碼 / Enter password",
                                  label_visibility="collapsed")
-            ok = st.form_submit_button("Sign in", type="primary", use_container_width=True)
+            ok = st.form_submit_button("登入 Sign in", type="primary", use_container_width=True)
             if ok:
                 if pwd in valid:
                     st.session_state["authenticated"] = True
                     st.rerun()
                 else:
-                    st.error("❌ Wrong password")
+                    st.error("❌ 密碼錯誤 / Wrong password")
     st.stop()
     return False
 
@@ -88,6 +88,6 @@ def check_password() -> bool:
 def logout_button():
     """Add a logout button to wherever it's called."""
     if st.session_state.get("authenticated"):
-        if st.button("🚪 Logout", use_container_width=True):
+        if st.button("🚪 登出 Logout", use_container_width=True):
             st.session_state.pop("authenticated", None)
             st.rerun()
