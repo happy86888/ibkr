@@ -17,6 +17,7 @@ from ui.backtest_page import render_backtest_page
 from ui.screener_page import render_screener_page
 from ui.manual_page import render_manual_page
 from ui.recommendation_page import render_recommendation_page
+from ui.auto_recommend_page import render_auto_recommend_page
 
 
 # ---------------- Page setup ----------------
@@ -55,6 +56,7 @@ with st.sidebar:
     st.divider()
     st.markdown("**功能 Features**")
     st.caption(
+        "🤖 智慧推薦 Smart Recommend ⭐⭐  \n"
         "🎯 立即建議 Recommendation ⭐  \n"
         "✅ 多策略回測 Backtest  \n"
         "✅ 機會篩選 Screener  \n"
@@ -66,7 +68,8 @@ with st.sidebar:
     st.markdown("**📚 快速指引**")
     st.caption(
         "**第一次用**：先看「📖 操作手冊」  \n"
-        "**有標的想賣 CC**：「🎯 立即建議」⭐  \n"
+        "**不知道選哪檔**：「🤖 智慧推薦」⭐⭐  \n"
+        "**有特定標的**：「🎯 立即建議」⭐  \n"
         "**研究策略**：「🧪 回測」  \n"
         "**廣泛找機會**：「🔍 篩選器」  \n"
     )
@@ -77,9 +80,12 @@ with st.sidebar:
 st.title("📈 Covered Call 交易系統")
 st.caption("回測 4 種策略（CC / CSP / Wheel / PMCC）+ 篩選當前 CC 機會 + 完整操作手冊")
 
-tab_recommend, tab_manual, tab_backtest, tab_screener, tab_about = st.tabs([
-    "🎯 立即建議", "📖 操作手冊", "🧪 回測 Backtest", "🔍 篩選器 Screener", "ℹ️ 關於 About"
+tab_smart, tab_recommend, tab_manual, tab_backtest, tab_screener, tab_about = st.tabs([
+    "🤖 智慧推薦", "🎯 立即建議", "📖 操作手冊", "🧪 回測 Backtest", "🔍 篩選器 Screener", "ℹ️ 關於 About"
 ])
+
+with tab_smart:
+    render_auto_recommend_page()
 
 with tab_recommend:
     render_recommendation_page()
